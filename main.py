@@ -52,6 +52,13 @@ async def check_request_ip(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def cache_control_header(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "public, max-age=600"
+    return response
+
+
 @app.get('/image/{attachment_id}', responses={
     200: {
         "content": {
