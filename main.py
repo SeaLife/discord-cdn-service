@@ -69,7 +69,7 @@ async def get_image(attachment_id: str) -> Response:
 @app.post('/upload/{attachment_id}')
 async def upload(attachment_id: str, request: Request,
                  file: Annotated[
-                     UploadFile, File(validation_alias="files[0]", alias="files[0]")], ) -> DiscordWebhookResponse:
+                     UploadFile, File(validation_alias="files[]", alias="files[]")], ) -> DiscordWebhookResponse:
     try:
         _id = uuid.UUID(attachment_id, version=4)
     except ValueError:
@@ -150,7 +150,7 @@ async def upload(attachment_id: str, request: Request,
 
 
 @app.post('/upload')
-async def upload_without_id(files: Annotated[UploadFile, File(validation_alias="files[0]", alias="files[0]")],
+async def upload_without_id(files: Annotated[UploadFile, File(validation_alias="files[]", alias="files[]")],
                             request: Request) -> DiscordWebhookResponse:
     attachment_id = str(uuid.uuid4())
 
