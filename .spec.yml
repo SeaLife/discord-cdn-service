@@ -10,6 +10,7 @@ services:
       MINIO_SECRET_KEY: '{MINIO_SECRET_KEY}'
       MINIO_HOST: 'minio-api.r3ktm8.de'
       ATTACHMENT_BASE_URL: 'https://discord-cdn.srvc.alteravitarp.de'
+      FORWARDED_ALLOW_IPS: '*'
     ingress:
       type: traefik
-    command: [ "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers" ]
+    command: [ "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers"]
