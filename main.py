@@ -55,7 +55,10 @@ async def check_request_ip(request: Request, call_next):
 @app.middleware("http")
 async def cache_control_header(request: Request, call_next):
     response = await call_next(request)
-    response.headers["Cache-Control"] = "public, max-age=600"
+
+    if request.method.upper() == 'GET':
+        response.headers["Cache-Control"] = "public, max-age=600"
+
     return response
 
 
