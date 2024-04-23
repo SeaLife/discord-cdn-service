@@ -31,6 +31,16 @@ def is_file_image(file: UploadFile):
     return file.content_type.startswith('image/')
 
 
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    print(request.headers)
+    print(await request.body())
+
+    response = await call_next(request)
+    response.headers["X-Process-Time"] = str(datetime.datetime.now())
+    return response
+
+
 @app.get('/image/{attachment_id}', responses={
     200: {
         "content": {
