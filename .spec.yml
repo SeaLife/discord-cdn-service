@@ -1,0 +1,14 @@
+version: v1
+services:
+  - name: discord-cdn-service
+    image: registry.r3ktm8.de/fivem/discord-cdn-service:unstable
+    hostname: discord-cdn.srvc.alteravitarp.de
+    network: web
+    environment:
+      TZ: "Europe/Berlin"
+      MINIO_ACCESS_KEY: '{MINIO_ACCESS_KEY}'
+      MINIO_SECRET_KEY: '{MINIO_SECRET_KEY}'
+      MINIO_HOST: 'minio-api.r3ktm8.de'
+      ATTACHMENT_BASE_URL: 'https://discord-cdn.srvc.alteravitarp.de'
+    ingress:
+      type: traefik

@@ -1,0 +1,12 @@
+include:
+  - project: 'general/ci-templates'
+    file: 'workflow.gitlab-ci.yml'
+  - project: 'general/ci-templates'
+    file: 'podman-all-in-one.gitlab-ci.yml'
+  - project: 'general/ci-templates'
+    file: 'deployment-api.gitlab-ci.yml'
+
+variables:
+  DEPLOYMENT_SPEC_FILE: '.spec.yml'
+  DEPLOYMENT_SPEC_NAME_STAGING: 'discord-cdn-service'
+  DEPLOYMENT_AUTO_STAGING: 'yes'
