@@ -33,8 +33,8 @@ def is_file_image(file: UploadFile):
     return file.content_type.startswith('image/')
 
 
-# @app.middleware("http")
-# async def add_process_time_header(request: Request, call_next):
+#@app.middleware("http")
+#async def add_process_time_header(request: Request, call_next):
 #    print(request.headers)
 #    print(await request.body())
 #
@@ -42,14 +42,14 @@ def is_file_image(file: UploadFile):
 #    response.headers["X-Process-Time"] = str(datetime.datetime.now())
 #    return response
 
-@app.middleware("http")
-async def check_request_ip(request: Request, call_next):
-    if request.method.upper() == 'POST' and request.client.host not in REQUEST_IP_WHITELIST:
-        print(f'Forbidden IP: {request.client.host}, Access was denied')
-        return Response(status_code=403, content='Forbidden')
-
-    response = await call_next(request)
-    return response
+#@app.middleware("http")
+#async def check_request_ip(request: Request, call_next):
+#    if request.method.upper() == 'POST' and request.client.host not in REQUEST_IP_WHITELIST:
+#        print(f'Forbidden IP: {request.client.host}, Access was denied')
+#        return Response(status_code=403, content='Forbidden')
+#
+#    response = await call_next(request)
+#    return response
 
 
 @app.middleware("http")
