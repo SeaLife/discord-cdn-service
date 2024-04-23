@@ -2,10 +2,11 @@ import datetime
 import io
 import os
 import uuid
+from typing import Annotated
 
 from discord import DiscordWebhookResponse, Author, Attachment
 from dotenv import load_dotenv
-from fastapi import FastAPI, UploadFile, HTTPException, Request, Response
+from fastapi import FastAPI, UploadFile, HTTPException, Request, Response, File
 from minio import Minio
 from minio.commonconfig import Tags
 
@@ -56,7 +57,9 @@ async def get_image(attachment_id: str) -> Response:
 
 
 @app.post('/upload/{attachment_id}')
-async def upload(attachment_id: str, files: list[UploadFile], request: Request) -> DiscordWebhookResponse:
+async def upload(attachment_id: str, request: Request,
+                 file: Annotated[
+                     UploadFile, File(validation_alias="files[0]", alias="files[0]")], ) -> DiscordWebhookResponse:
     try:
         _id = uuid.UUID(attachment_id, version=4)
     except ValueError:
@@ -66,24 +69,23 @@ async def upload(attachment_id: str, files: list[UploadFile], request: Request) 
     content_type = None
     file_extension = None
 
-    for file in files:
-        if is_file_image(file):
-            content_type = file.content_type
-            content = await file.read()
-            file_extension = content_type.split('/')[1]
+    if is_file_image(file):
+        content_type = file.content_type
+        content = await file.read()
+        file_extension = content_type.split('/')[1]
 
-            if file_extension.lower() not in ['png', 'jpeg', 'jpg']:
-                raise HTTPException(status_code=400, detail='Only PNG and JPEG/JPG images are supported')
+        if file_extension.lower() not in ['png', 'jpeg', 'jpg']:
+            raise HTTPException(status_code=400, detail='Only PNG and JPEG/JPG images are supported')
 
-            tmp_file_name = f'{attachment_id}.{file_extension}'
+        tmp_file_name = f'{attachment_id}.{file_extension}'
 
-            file_tags = Tags()
-            file_tags['client'] = request.client.host
+        file_tags = Tags()
+        file_tags['client'] = request.client.host
 
-            minio_client.put_object(MINIO_BUCKET_NAME, tmp_file_name, io.BytesIO(content), len(content), content_type,
-                                    tags=file_tags)
-        else:
-            raise HTTPException(status_code=400, detail='File is not an image')
+        minio_client.put_object(MINIO_BUCKET_NAME, tmp_file_name, io.BytesIO(content), len(content), content_type,
+                                tags=file_tags)
+    else:
+        raise HTTPException(status_code=400, detail='File is not an image')
 
     if content is None:
         raise HTTPException(status_code=400, detail='No image file provided')
@@ -138,10 +140,11 @@ async def upload(attachment_id: str, files: list[UploadFile], request: Request) 
 
 
 @app.post('/upload')
-async def upload_without_id(files: list[UploadFile], request: Request) -> DiscordWebhookResponse:
+async def upload_without_id(files: Annotated[UploadFile, File(validation_alias="files[0]", alias="files[0]")],
+                            request: Request) -> DiscordWebhookResponse:
     attachment_id = str(uuid.uuid4())
 
-    return await upload(attachment_id, files, request)
+    return await upload(attachment_id, request, files)
 
 
 @app.get("/")
