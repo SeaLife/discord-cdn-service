@@ -13,7 +13,7 @@ services:
       FORWARDED_ALLOW_IPS: '*'
       REQUEST_IP_WHITELIST: '185.253.169.78,37.114.59.9'
     labels:
-      - traefik.http.routers.discord-cdn-service.middlewares=cache@file
+      - traefik.http.routers.discord-cdn-service.middlewares=compress@file,cache@file
     ingress:
       type: traefik
     command: [ "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers"]
