@@ -21,6 +21,8 @@ MINIO_HOST = os.getenv('MINIO_HOST', 'minio-api.r3ktm8.de')
 
 ATTACHMENT_BASE_URL = os.getenv('ATTACHMENT_BASE_URL', 'https://discord-cdn.srvc.alteravitarp.de')
 
+REQUEST_IP_WHITELIST = os.getenv('REQUEST_IP_WHITELIST', '127.0.0.1').split(',')
+
 minio_client = Minio(MINIO_HOST, access_key=MINIO_ACCESS_KEY, secret_key=MINIO_SECRET_KEY)
 
 if not minio_client.bucket_exists(MINIO_BUCKET_NAME):
@@ -39,6 +41,15 @@ def is_file_image(file: UploadFile):
 #    response = await call_next(request)
 #    response.headers["X-Process-Time"] = str(datetime.datetime.now())
 #    return response
+
+@app.middleware("http")
+async def check_request_ip(request: Request, call_next):
+    if request.method.upper() == 'POST' and request.client.host not in REQUEST_IP_WHITELIST:
+        print(f'Forbidden IP: {request.client.host}, Access was denied')
+        return Response(status_code=403, content='Forbidden')
+
+    response = await call_next(request)
+    return response
 
 
 @app.get('/image/{attachment_id}', responses={
