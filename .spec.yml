@@ -1,7 +1,7 @@
 version: v1
 services:
   - name: discord-cdn-service
-    image: registry.r3ktm8.de/fivem/discord-cdn-service:unstable
+    image: registry.r3ktm8.de/fivem/discord-cdn-service:latest
     hostname: discord-cdn.srvc.alteravitarp.de
     network: web
     environment:
