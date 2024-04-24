@@ -1,16 +1,27 @@
 import datetime
 import io
+import logging
 import os
 import uuid
 from typing import Annotated
 
-from discord import DiscordWebhookResponse, Author, Attachment
 from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, HTTPException, Request, Response, File
 from minio import Minio
 from minio.commonconfig import Tags
+from prometheus_fastapi_instrumentator import Instrumentator
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+from discord import DiscordWebhookResponse, Author, Attachment
 
 app = FastAPI()
+
+app_error_log = logging.getLogger("uvicorn.error")
+
+limiter = Limiter(key_func=get_remote_address)
+
+Instrumentator().instrument(app).expose(app)
 
 load_dotenv()
 
@@ -18,6 +29,8 @@ MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', None)
 MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY', None)
 MINIO_BUCKET_NAME = os.getenv('MINIO_BUCKET_NAME', 'handy-blobs')
 MINIO_HOST = os.getenv('MINIO_HOST', 'minio-api.r3ktm8.de')
+
+RATE_LIMIT = os.getenv('APP_RATE_LIMIT', '4/minute')
 
 ATTACHMENT_BASE_URL = os.getenv('ATTACHMENT_BASE_URL', 'https://discord-cdn.srvc.alteravitarp.de')
 
@@ -33,25 +46,6 @@ def is_file_image(file: UploadFile):
     return file.content_type.startswith('image/')
 
 
-#@app.middleware("http")
-#async def add_process_time_header(request: Request, call_next):
-#    print(request.headers)
-#    print(await request.body())
-#
-#    response = await call_next(request)
-#    response.headers["X-Process-Time"] = str(datetime.datetime.now())
-#    return response
-
-#@app.middleware("http")
-#async def check_request_ip(request: Request, call_next):
-#    if request.method.upper() == 'POST' and request.client.host not in REQUEST_IP_WHITELIST:
-#        print(f'Forbidden IP: {request.client.host}, Access was denied')
-#        return Response(status_code=403, content='Forbidden')
-#
-#    response = await call_next(request)
-#    return response
-
-
 @app.middleware("http")
 async def cache_control_header(request: Request, call_next):
     response = await call_next(request)
@@ -65,14 +59,22 @@ async def cache_control_header(request: Request, call_next):
 @app.get('/image/{attachment_id}', responses={
     200: {
         "content": {
-            "image/png": {},
-            "image/jpg": {},
+            "image/png":  {},
+            "image/jpg":  {},
             "image/jpeg": {},
         },
     }
 })
 async def get_image(attachment_id: str) -> Response:
-    _uuid = attachment_id.split(".")[0]
+    _id = attachment_id.split('.')
+    _uuid = _id[0]
+    _attachment_type = 'png'
+
+    if len(_id) == 2:
+        _attachment_type = _id[1]
+
+    if _attachment_type not in ['png', 'jpg', 'jpeg']:
+        raise HTTPException(status_code=400, detail="Invalid attachment type")
 
     try:
         _id = uuid.UUID(_uuid, version=4)
@@ -84,13 +86,14 @@ async def get_image(attachment_id: str) -> Response:
     except Exception as e:
         raise HTTPException(status_code=404, detail='Image not found')
 
-    return Response(content=data.read(), media_type='image/png')
+    return Response(content=data.read(), media_type=f'image/{_attachment_type}')
 
 
 @app.post('/upload/{attachment_id}')
-async def upload(attachment_id: str, request: Request,
+@limiter.shared_limit(RATE_LIMIT, scope="upload")
+async def upload(request: Request, response: Response, attachment_id: str,
                  file: Annotated[
-                     UploadFile, File(validation_alias="files[]", alias="files[]")], ) -> DiscordWebhookResponse:
+                     UploadFile, File(validation_alias="files[]", alias="files[]")]) -> DiscordWebhookResponse:
     try:
         _id = uuid.UUID(attachment_id, version=4)
     except ValueError:
@@ -112,6 +115,9 @@ async def upload(attachment_id: str, request: Request,
 
         file_tags = Tags()
         file_tags['client'] = request.client.host
+
+        if file_tags['client'].startswith('172.'):
+            app_error_log.error(f'Client IP starts with 172. which could indicate being behind a proxy.')
 
         minio_client.put_object(MINIO_BUCKET_NAME, tmp_file_name, io.BytesIO(content), len(content), content_type,
                                 tags=file_tags)
@@ -145,7 +151,7 @@ async def upload(attachment_id: str, request: Request,
         global_name=None,
     )
 
-    response = DiscordWebhookResponse(
+    output = DiscordWebhookResponse(
         id='1224476078501007471',
         type=0,
         content="",
@@ -165,17 +171,19 @@ async def upload(attachment_id: str, request: Request,
         edited_timestamp=None
     )
 
-    response.attachments.append(attachment)
+    output.attachments.append(attachment)
 
-    return response
+    return output
 
 
 @app.post('/upload')
-async def upload_without_id(files: Annotated[UploadFile, File(validation_alias="files[]", alias="files[]")],
-                            request: Request) -> DiscordWebhookResponse:
+@limiter.shared_limit(RATE_LIMIT, scope="upload")
+async def upload_without_id(request: Request, response: Response,
+                            file: Annotated[UploadFile, File(validation_alias="files[]",
+                                                             alias="files[]")], ) -> DiscordWebhookResponse:
     attachment_id = str(uuid.uuid4())
 
-    return await upload(attachment_id, request, files)
+    return await upload(request, response, attachment_id, file)
 
 
 @app.get("/")

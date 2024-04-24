@@ -3,3 +3,5 @@ uvicorn
 python-multipart
 minio
 python-dotenv
+prometheus-fastapi-instrumentator
+slowapi
